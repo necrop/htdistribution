@@ -1,0 +1,214 @@
+
+import os
+import csv
+import random
+from collections import namedtuple, defaultdict
+
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+from matplotlib.figure import Figure
+from matplotlib.patches import Rectangle
+
+from lex.oed.thesaurus.treemanager import TreeManager
+from .countdata import countdata_iterator
+
+
+figure_size = (20, 12)
+base_colors = {
+    1: ("#E5FFE5", "#EDFFED"),
+    122209: ("#E8FFFF", "#EFFFFF"),
+    153072: ("#FFFFE5", "#FFFFED")
+}
+dots = (("alpha", 6, "#FF0000"), ("beta", 3, "#FF0000"), ("compound", 3, "#0000FF"))
+Coordinates = namedtuple("Coordinates",
+                         ["originx", "originy", "width", "height"])
+maximum_points = 10000
+
+
+class Treemap(object):
+
+    def __init__(self, **kwargs):
+        self.tax_dir = kwargs.get("taxonomyDir")
+        self.coordinates_file = kwargs.get("coordinatesFile")
+        self.tree_manager = TreeManager(dir=self.tax_dir, levels=4, verbosity=None)
+
+    def compute_rectangles(self):
+        self.rectangles = []
+        self._iterate_tree(
+            classes=[c for c in self.tree_manager.classes if c.level() == 1],
+            orientation="horizontal",
+            originx=0,
+            width=1,
+            originy=0.05, # leaving room for key/legend at the bottom of the chart
+            height=0.95,
+        )
+        with open(self.coordinates_file, "wb") as csvfile:
+            csvwriter = csv.writer(csvfile)
+            for c in self.rectangles:
+                row = (c.id(), c.count, c.rectangle.originx,
+                       c.rectangle.originy, c.rectangle.width,
+                       c.rectangle.height)
+                csvwriter.writerow(row)
+
+    def _iterate_tree(self, **kwargs):
+        classes = kwargs.get("classes")
+        orientation = kwargs.get("orientation")
+        originx = kwargs.get("originx")
+        originy = kwargs.get("originy")
+        width = kwargs.get("width")
+        height = kwargs.get("height")
+        total_size = sum([c.size(branch=True) for c in classes])
+
+        if orientation == "horizontal":
+            scale = float(width) / float(total_size)
+        elif orientation == "vertical":
+            scale = float(height) / float(total_size)
+            # Reverse classes so that the first is shown at the top
+            classes.reverse()
+
+        moving_origin = (originx, originy)
+        for i, c in enumerate(classes):
+            rect_size = c.size(branch=True) * scale
+            if orientation == "horizontal":
+                c.rectangle = Coordinates(originx, originy, rect_size, height)
+                originx += rect_size
+            else:
+                c.rectangle = Coordinates(originx, originy, width, rect_size)
+                originy += rect_size
+            c.count = i
+            self.rectangles.append(c)
+
+            offspring = [k for k in self.tree_manager.children_of(c.id())
+                         if k.wordclass() is None]
+            if offspring:
+                if orientation == "horizontal":
+                    new_orientation = "vertical"
+                else:
+                    new_orientation = "horizontal"
+                self._iterate_tree(
+                    classes=offspring,
+                    orientation=new_orientation,
+                    originx=c.rectangle.originx,
+                    originy=c.rectangle.originy,
+                    width=c.rectangle.width,
+                    height=c.rectangle.height,
+                )
+
+    def draw_treemaps(self, **kwargs):
+        data_dir = kwargs.get("dataDir")
+        out_dir = kwargs.get("outDir")
+        self._load_rectangles()
+
+        for countdata in countdata_iterator( dir=data_dir,
+            treeManager=self.tree_manager):
+            element_id = countdata.id
+
+            points_list = []
+            for thes_id, countset in countdata.countsets.items():
+                for i in range(countset.alpha):
+                    points_list.append((thes_id, "alpha"))
+                for i in range(countset.beta):
+                    points_list.append((thes_id, "beta"))
+                for i in range(countset.compound):
+                    points_list.append((thes_id, "compound"))
+            # Randomly sample, if > 10000 data points
+            if len(points_list) > maximum_points:
+                points_list = random.sample(points_list, maximum_points)
+
+            distribution = defaultdict(list)
+            for thes_id, t in points_list:
+                distribution[thes_id].append(t)
+
+            series = {"alpha": {"x": [], "y": []},
+                      "beta": {"x": [], "y": []},
+                      "compound": {"x": [], "y": []},}
+            for thes_id, vals in distribution.items():
+                c = self.tree_manager.find_class(thes_id)
+                try:
+                    c.rectangle
+                except AttributeError:
+                    pass
+                else:
+                    for t in vals:
+                        x, y = random_point(c.rectangle)
+                        series[t]["x"].append(x)
+                        series[t]["y"].append(y)
+
+            fig = Figure(figsize=figure_size, facecolor="white")
+            ax = fig.add_subplot(111)
+            ax.set_xlim(0, 1)
+            ax.set_ylim(0, 1)
+            ax.get_xaxis().set_ticks([])
+            ax.get_yaxis().set_ticks([])
+
+            # Draw the rectangles for each class branch
+            for c in [c for c in self.rectangles if c.level() <= 3]:
+                if c.level() == 2:
+                    color = base_colors[c.root()][c.count % 2]
+                else:
+                    color = 'none'
+                r = Rectangle((c.rectangle.originx, c.rectangle.originy),
+                              c.rectangle.width,
+                              c.rectangle.height,
+                              edgecolor="#cccccc",
+                              facecolor=color)
+                ax.add_patch(r)
+
+            for t, dotsize, color in dots:
+                ax.scatter(series[t]["x"],
+                           series[t]["y"],
+                           s=dotsize,
+                           facecolor=color,
+                           edgecolor="none",
+                           zorder=2)
+
+            # Add text label for each level-2 branch
+            for c in [c for c in self.rectangles if c.level() == 2]:
+                ax.text(c.rectangle.originx + 0.005,
+                        c.rectangle.originy + (c.rectangle.height / 2),
+                        c.label(),
+                        zorder=3)
+
+            canvas = FigureCanvasAgg(fig)
+            canvas.print_figure(os.path.join(out_dir, "%d.png" % element_id))
+
+    def prepare_db(self, **kwargs):
+        out_file = kwargs.get("outFile")
+        self._load_rectangles()
+        rows = []
+        for c in self.rectangles:
+            row = (
+                c.id(),
+                c.label().encode("utf8"),
+                c.level(),
+                c.count,
+                c.parent() or "",
+                c.size(branch=True),
+                c.rectangle.originx,
+                c.rectangle.originy,
+                c.rectangle.width,
+                c.rectangle.height,
+            )
+            rows.append(row)
+        rows = sorted(rows, key=lambda c: c[2])
+        with open(out_file, "wb") as csvfile:
+            csvwriter = csv.writer(csvfile)
+            csvwriter.writerows(rows)
+
+    def _load_rectangles(self):
+        self.rectangles = []
+        with open(self.coordinates_file, "rb") as csvfile:
+            csvreader = csv.reader(csvfile)
+            for row in csvreader:
+                id = int(row.pop(0))
+                count = int(row.pop(0))
+                row = [float(r) for r in row]
+                c = self.tree_manager.find_class(id)
+                c.rectangle = Coordinates(row[0], row[1], row[2], row[3])
+                c.count = count
+                self.rectangles.append(c)
+
+
+def random_point(rectangle):
+    x = random.uniform(rectangle.originx, rectangle.originx + rectangle.width)
+    y = random.uniform(rectangle.originy, rectangle.originy + rectangle.height)
+    return (x, y)

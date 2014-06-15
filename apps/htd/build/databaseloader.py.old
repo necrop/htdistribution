@@ -1,0 +1,119 @@
+
+import os
+import csv
+import MySQLdb
+
+fields = {
+    "element": [
+        "id",
+        "oedidentifier",
+        "label",
+        "alphasort",
+        "type",
+        "year",
+        "gender",
+        "size",
+        "chistat2",
+        "pvalue2",
+        "chistat3",
+        "pvalue3",
+    ],
+    "thesaurusclass": [
+        "id",
+        "label",
+        "level",
+        "count",
+        "superordinate_id",
+        "size",
+        "originx",
+        "originy",
+        "width",
+        "height",
+    ],
+    "countset": [
+        "element_id",
+        "thesaurusclass_id",
+        "level",
+        "majorsenses",
+        "minorsenses",
+        "subentries",
+        "total",
+        "branchtotal",
+    ],
+}
+
+
+class DatabaseLoader(object):
+
+    def __init__(self, **kwargs):
+        self.dir = kwargs.get("dir")
+
+    def populate(self):
+        self.con = MySQLdb.connect(user="root",
+                                   passwd="shapo1MYSQL",
+                                   db="agendr",
+                                   charset="utf8",
+                                   use_unicode=True)
+        self.cursor = self.con.cursor()
+        self._null_tables()
+
+        for table in ("element", "thesaurusclass", "countset"):
+            print "%s..." % table
+            template = insert_template(table)
+            if table == "element":
+                files = [f for f in os.listdir(self.dir) if "elements_" in f]
+            elif table == "thesaurusclass":
+                files = [f for f in os.listdir(self.dir) if "taxonomy" in f]
+            elif table == "countset":
+                files = [f for f in os.listdir(self.dir) if "counts_" in f]
+
+            rows = []
+            for f in files:
+                with open(os.path.join(self.dir, f), "rb") as csvfile:
+                    csvreader = csv.reader(csvfile)
+                    for row in csvreader:
+                        row = self._coerce([c.decode("utf8") for c in row], table)
+                        rows.append(row)
+
+            count = 0
+            for row in rows:
+                self.cursor.execute(template, row)
+                count += 1
+                if count > 1000:
+                    self.con.commit()
+                    count = 0
+            self.con.commit()
+        self.con.close()
+
+    def _null_tables(self):
+        for table in ("collection_elements", "collection", "countset", "element",):
+            self.cursor.execute("delete from htdistribution_%s" % table)
+            self.con.commit()
+        for l in (5, 4, 3, 2, 1):
+            self.cursor.execute(
+                "delete from htdistribution_thesaurusclass where level = %d" % l)
+            self.con.commit()
+
+    def _coerce(self, row, table):
+        row2 = []
+        for val, col in zip(row, fields[table]):
+            if val == "":
+                val = None
+            elif col in ("id", "year", "size", "level", "count", "superordinate",
+                "element", "thesaurusclass", "majorsenses", "minorsenses",
+                "subentries", "total", "branchtotal"):
+                val = int(val)
+            elif col in ("chistat2", "chistat3", "pvalue2", "pvalue3",
+                "originx", "originy", "width", "height",):
+                val = float("%.4g" % float(val))
+            row2.append(val)
+        return row2
+
+
+def insert_template(table):
+    string = "INSERT INTO htdistribution_%s (%s) VALUES (%s)" % (
+        table,
+        ", ".join(fields[table]),
+        ", ".join(["""%s""" for z in fields[table]])
+    )
+    return string

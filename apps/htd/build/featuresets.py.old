@@ -1,0 +1,272 @@
+
+import os
+import csv
+import math
+from collections import defaultdict
+
+from lex.oed.thesaurus.taxonomymanager import TaxonomyManager
+from lex.entryiterator import EntryIterator
+
+from .countdata import countdata_iterator
+
+normalized_density_total = 10000
+
+
+class FeatureSets(object):
+
+    def __init__(self, **kwargs):
+        self.tax_dir = kwargs.get('taxonomy_dir')
+        self.element_list = load_element_list(kwargs.get('element_list'))
+        self.element_hash = {element.id: element
+                             for element in self.element_list}
+        self.tree_manager = TaxonomyManager(dir=self.tax_dir, levels=4, verbosity=None)
+
+    def compile_data(self, **kwargs):
+        data_dir = kwargs.get('data_dir')
+
+        elements = [e for e in self.element_list if not
+                    os.path.isfile(os.path.join(data_dir, '%d.csv' % e.id))]
+        for e in elements:
+            e.matches = defaultdict(lambda: [0, 0, 0])
+
+        try:
+            attribute = elements[0].type
+        except IndexError:
+            attribute = None
+
+        ei = EntryIterator(dict_type='oed',
+                           fix_ligatures=True,
+                           verbosity='low')
+        for entry in ei.iterate():
+            entry.share_quotations()
+            senses = [s for s in entry.senses if s.thesaurus_categories()]
+            if attribute == 'language':
+                self._test_languages(elements, senses, entry)
+            elif attribute in ('author', 'title'):
+                self._test_quotations(elements, senses)
+            elif attribute == 'compound':
+                self._test_compounds(elements, senses, entry)
+
+        for element in elements:
+            outfile = os.path.join(data_dir, '%d.csv' % element.id)
+            rows = []
+            for thes_id, val in element.matches.items():
+                rows.append((thes_id, val[0], val[1], val[2]))
+            with open(outfile, 'wb') as csvfile:
+                csvwriter = csv.writer(csvfile)
+                csvwriter.writerows(rows)
+
+    def prepare_db(self, **kwargs):
+        data_dir = kwargs.get('data_dir')
+        out_dir = kwargs.get('out_dir')
+        setname = kwargs.get('set_name')
+        elements = []
+        iterator = countdata_iterator(dir=data_dir,
+                                      tree_manager=self.tree_manager)
+        for countdata in iterator:
+            element = self.element_hash[countdata.id]
+            element.countdata = countdata
+            elements.append(element)
+
+        rows = []
+        for element in elements:
+            chistat2, pvalue2 = element.countdata.chisquare(level=2)
+            chistat3, pvalue3 = element.countdata.chisquare(level=3)
+            if math.isnan(pvalue2):
+                pvalue2 = 0
+            if math.isnan(pvalue3):
+                pvalue3 = 0
+            row = (
+                element.id,
+                element.oed_id,
+                element.label,
+                element.alphasort,
+                element.type,
+                element.year,
+                element.gender,
+                element.countdata.total(),
+                chistat2,
+                pvalue2,
+                chistat3,
+                pvalue3,
+            )
+            rows.append(row)
+        el_file = os.path.join(out_dir, 'elements_%s.csv' % setname)
+        with open(el_file, 'wb') as csvfile:
+            csvwriter = csv.writer(csvfile)
+            csvwriter.writerows(rows)
+
+        rows = []
+        for element in elements:
+            for countset in [cs for cs in element.countdata.countsets.values()
+                             if cs.branch_total]:
+                row = (
+                    element.id,
+                    countset.thesaurus_id,
+                    countset.level,
+                    countset.alpha,
+                    countset.beta,
+                    countset.compound,
+                    countset.total(),
+                    countset.branch_total,
+                    countset.density,
+                    countset.normalized_density,
+                    countset.share,
+                )
+                rows.append(row)
+        count_file = os.path.join(out_dir, 'counts_%s.csv' % setname)
+        with open(count_file, 'wb') as csvfile:
+            csvwriter = csv.writer(csvfile)
+            csvwriter.writerows(rows)
+
+    def _load_rectangles(self):
+        self.rectangles = []
+        with open(self.coordinates_file, 'rb') as csvfile:
+            csvreader = csv.reader(csvfile)
+            for row in csvreader:
+                id = int(row.pop(0))
+                count = int(row.pop(0))
+                row = [float(r) for r in row]
+                c = self.tree_manager.find_class(id)
+                c.rectangle = Coordinates(row[0], row[1], row[2], row[3])
+                c.count = count
+                self.rectangles.append(c)
+
+
+    def compare_elements(self, **kwargs):
+        data_dir = kwargs.get('data_dir')
+        out_file = kwargs.get('out_file')
+
+        elements = []
+        for countdata in countdata_iterator(dir=data_dir,
+                                            treeManager=self.tree_manager):
+            element = self.element_hash[countdata.id]
+            element.countdata = countdata
+            elements.append(element)
+
+        lines = []
+        for element in elements:
+            print(element.label)
+            lines.append('>%s (%d)\t\tskew2=%f\t\tskew3=%f' % (element.label,
+                element.countdata.total(), element.countdata.skew(level=2),
+                element.countdata.skew(level=3)))
+            for l in (2, 3):
+                lines.append('\n')
+                for dp in element.countdata.classes_by_density(level=l)[0:10]:
+                    lines.append('\t%s\t%d\t%d\t%d\t%.2g\t%.2g\t%.2g' % (
+                        dp.thesaurus_class.breadcrumb(),
+                        dp.thesaurus_class.size(branch=True), dp.total(),
+                        dp.branch_total, dp.density,
+                        dp.normalized_density, dp.share))
+            #neighbours = []
+            #for element2 in [e for e in elements if e.id != element.id]:
+            #    distance = element.share_distance(element2, mode=mode)
+            #    neighbours.append((element2.id, element2.label, distance))
+            #neighbours.sort(key=lambda e: e[2])
+            #for n in neighbours[0:10]:
+            #    lines.append('\t\t%s\t%f' % (n[1], n[2]))
+            lines.append('\n==============================\n\n')
+
+        with open(out_file, 'w') as fh:
+            for l in lines:
+                fh.write(l + '\n')
+
+    #==============================================
+    # Methods for collecting data points from OED entries
+    # (invoked by compile_data())
+    #==============================================
+
+    def _test_quotations(self, elements, senses):
+        for sense in [s for s in senses if s.quotation_paragraphs()]:
+            qp = sense.quotation_paragraphs()[0]
+            for element in elements:
+                if qp.contains_quote_from(**{element.type: element.markers}):
+                    for thes_id in self._thesaurus_classes_for_sense(sense):
+                        self._add_score(element, thes_id, sense)
+
+    def _test_languages(self, elements, senses, entry):
+        # build a set of all the languages in each breadcrumb
+        langs = set()
+        for breadcrumb in entry.characteristic_list('etymonLanguage'):
+            langs = langs.union(breadcrumb.split('/'))
+        # find the subset of elements whose markers occur in the langs set
+        matching_elements = [element for element in elements if
+                             element.markers.intersection(langs) and
+                             not element.negators.intersection(langs)]
+        if matching_elements:
+            for sense in senses:
+                for thes_id in self._thesaurus_classes_for_sense(sense):
+                    for element in matching_elements:
+                        self._add_score(element, thes_id, sense)
+
+    def _test_compounds(self, elements, senses, entry):
+        senses = [s for s in senses if not s.is_phrase()]
+        etyma = set(entry.etymology.etyma_lemmas())
+        headword = entry.lemma
+        # find the subset of elements whose markers occur in the entry's etyma
+        # or headword, and for which all senses in the entry an be treated as
+        # matches
+        passim_elements = [element for element in elements if
+                           element.markers.intersection(etyma) or
+                           element.markers.intersection([headword])]
+        # all other elements
+        other_elements = [element for element in elements if not
+                          element in passim_elements]
+        if passim_elements:
+            for sense in senses:
+                for thes_id in self._thesaurus_classes_for_sense(sense):
+                    for element in passim_elements:
+                        self._add_score(element, thes_id, sense)
+        for sense in [s for s in senses if s.lemma != headword]:
+            for element in other_elements:
+                if sense.is_compound_of(lemmas=element.markers, headword=headword):
+                    for thes_id in self._thesaurus_classes_for_sense(sense):
+                        self._add_score(element, thes_id, sense)
+
+    def _add_score(self, element, thes_id, sense):
+        if sense.is_subentry():
+            element.matches[thes_id][2] += 1
+        elif sense.num_quotations > 2:
+            element.matches[thes_id][0] += 1
+        else:
+            element.matches[thes_id][1] += 1
+
+    def _thesaurus_classes_for_sense(self, sense):
+        classes = set()
+        for t in sense.thesaurus_categories():
+            for thes_id in reversed([int(id) for id in t.split('/')]):
+                c = self.tree_manager.find_class(thes_id)
+                if c is not None and c.wordclass() is None:
+                    classes.add(thes_id)
+                    break
+        return classes
+
+
+
+def load_element_list(filepath):
+    elements = []
+    with open(filepath, 'rb') as csvfile:
+        csvreader = csv.reader(csvfile)
+        for row in csvreader:
+            j = ElementSet(id=int(row[0]),
+                           oed_id=row[1],
+                           label=row[2],
+                           alphasort=row[3],
+                           type=row[4],
+                           year=row[5],
+                           gender=row[6],
+                           markers=set([r.strip() for r in row[7:] if
+                                        r.strip() and
+                                        not r.strip().startswith('-')]),
+                           negators = set([r.strip('- ') for r in row[7:] if
+                                           r.strip() and
+                                           r.strip().startswith('-')]),)
+            elements.append(j)
+    return elements
+
+
+class ElementSet(object):
+
+    def __init__(self, **kwargs):
+        for k, v in kwargs.items():
+            self.__dict__[k] = v

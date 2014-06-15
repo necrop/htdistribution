@@ -1,0 +1,10 @@
+
+circle.datapoint {
+	fill: red;
+}
+
+circle.datapoint:hover {
+	stroke: red;
+	stroke-width: 3;
+	cursor: pointer;
+}

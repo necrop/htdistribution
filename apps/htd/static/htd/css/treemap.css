@@ -1,0 +1,65 @@
+
+.chartBackground {
+	stroke: #000000;
+	stroke-width: 2px;
+	fill: none;
+	pointer-events: none;
+}
+
+.level3square {
+	stroke: #666666;
+	stroke-width: 0.25px;
+}
+.highlighted {
+	stroke-width: 2px;
+}
+
+text.level2Label {
+	fill: #C0C0C0;
+	opacity: 0.8;
+	stroke: none;
+	pointer-events: none;
+}
+
+
+/* Styles for the pop-ups/tooltips */
+
+.d3-tip {
+	font-family: Arial;
+	line-height: 1;
+	padding: 5px;
+	background: black;
+	color: #fff;
+	border-radius: 2px;
+	pointer-events: none;
+}
+
+.popup {
+	position: absolute;
+	padding: 10px;
+	max-width: 400px;
+	font-family: Arial;
+	font-size: 15px;
+	color: #FFFFFF;
+	background: #333333;
+	border: 0px;
+	border-radius: 8px;
+	text-align: left;
+	opacity: 0;
+	z-index: 10;
+}
+
+.popup a:link {
+	color: #0099CC;
+}
+
+.popup h2, .popup h3 {
+	font-size: 2em;
+	margin: 0;
+	padding: 0;
+	padding-bottom: 0.3em;
+}
+.popup h3 {
+	font-size: 1.1em;
+	line-height: 1.1em;
+}

@@ -1,0 +1,42 @@
+{% extends "htd/base.html" %}
+{% load staticfiles %}
+{% load htd_extras %}
+
+{% block page_title %}
+{{ element.label }}
+{% endblock %}
+
+{% block extra_css %}
+	<link href="{% static 'htd/css/treemap.css' %}" rel="stylesheet">
+	{% block chart_specific_css %}{% endblock %}
+{% endblock %}
+
+
+{% block pagecontent %}
+	<div class="hero-unit subhero">
+		<h2>
+			{{ element.label }}
+			{% include 'htd/includes/oed_link.html' with oed_url=element.oed_url invert='false' %}
+		</h2>
+		{{ element.size }} senses
+	</div>
+
+	<div id="chartWrapper">
+		<div id="chartContainer"></div>
+		<div id="classDetails">
+			<h3></h3>
+		</div>
+		<div id="datapointTooltip" class="popup"></div>
+	</div>
+
+{% endblock %}
+
+
+{% block extra_scripts %}
+	<script type="text/javascript" src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+	<script type="text/javascript" src="{% static 'htd/js/d3.tip.min.js' %}" charset="utf-8"></script>
+	<script src="{% static 'htd/js/treemap_raw.js' %}"></script>
+	<script src="{% static 'htd/js/treemap_node.js' %}"></script>
+	<script src="{% static 'htd/js/treemap_plotter.js' %}"></script>
+	{% block chart_specific_scripts %}{% endblock %}
+{% endblock %}

@@ -1,0 +1,15 @@
+{% extends "htd/charts/element_base.html" %}
+{% load staticfiles %}
+{% load htd_extras %}
+
+{% block chart_specific_css %}
+	<link href="{% static 'htd/css/histogram.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block chart_specific_scripts %}
+	<script>
+		var raw_bar_data = {{ datapoints }};
+	</script>
+	<script src="{% static 'htd/js/histogram_bar.js' %}"></script>
+	<script src="{% static 'htd/js/histogram_chart.js' %}"></script>
+{% endblock %}
