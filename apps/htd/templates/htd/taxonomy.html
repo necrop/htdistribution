@@ -1,4 +1,4 @@
-{% extends "htdistribution/base.html" %}
+{% extends "htd/base.html" %}
 
 {% block page_title %}
 taxonomy
@@ -20,9 +20,11 @@ taxonomy
 			{% for t in classes %}
 				<tr>
 					<td>
+						{{ t.indent|safe }}
 						<span style="font-size: {% if t.level == 1 %}1.8{% else %}{% if t.level == 2 %}1.4{% else %}1{% endif %}{% endif %}em;">
-							{{ t.indented }}
-						</span>{% include 'htdistribution/includes/oed_link.html' with oed_url=t.oed_url %}
+							<span title="{{ t.breadcrumb }}">{{ t.label }}</span>
+						</span>
+						{% include 'htd/includes/oed_link.html' with oed_url=t.oed_url %}
 					</td>
 					<td>
 						{{ t.level }}

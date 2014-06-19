@@ -1,11 +1,8 @@
 /* global $, d3, document_year */
 'use strict';
 
-//var fill_colours = {1: 'red', 122209: 'blue', 153072: 'green'};
-
 var fill_colours = {1: ['#E5FFE5', '#EDFFED'], 122209: ['#E8FFFF', '#EFFFFF'],
 	153072: ['#FFDBFF', '#FFE5FF']};
-
 
 
 function TreemapNode(row) {
@@ -25,6 +22,14 @@ function TreemapNode(row) {
 
 TreemapNode.prototype.area = function() {
 	return this.width * this.height;
+}
+
+TreemapNode.prototype.centreX = function() {
+	return this.x + (this.width * .5);
+}
+
+TreemapNode.prototype.centreY = function() {
+	return this.y + (this.height * .5);
 }
 
 TreemapNode.prototype.label = function() {

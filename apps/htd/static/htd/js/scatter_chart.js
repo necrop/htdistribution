@@ -1,4 +1,4 @@
-/*global $, d3, lemmajson, raw_datapoints */
+/*global $, d3, raw_datapoints */
 'use strict';
 
 
@@ -7,10 +7,11 @@
 //===============================================================
 
 $(document).ready( function() {
-	var canvas_specs = drawTreemap();
-	var treemap_index = canvas_specs[3];
-	var datapoints = parseDataPoints(raw_datapoints, treemap_index);
-	plotDatapoints(datapoints, canvas_specs);
+	var treemap = new Treemap(treemap_data);
+	treemap.drawTreemap(3);
+	treemap.addLevel2Labels();
+	var datapoints = parseDataPoints(raw_datapoints, treemap);
+	plotDatapoints(datapoints, treemap);
 });
 
 
@@ -19,12 +20,12 @@ $(document).ready( function() {
 // Data preparation
 //===============================================================
 
-function parseDataPoints(compressed, treemap_index) {
+function parseDataPoints(compressed, treemap) {
 	var expanded = [];
 	for (var i = 0; i < compressed.length; i += 1) {
 		var row = compressed[i];
 		var node_id = row[2];
-		var node = treemap_index[node_id];
+		var node = treemap.index[node_id];
 		var p = new DataPoint(row, node);
 		expanded.push(p);
 	}
@@ -33,10 +34,10 @@ function parseDataPoints(compressed, treemap_index) {
 
 
 
-function plotDatapoints(datapoints, canvas_specs) {
-	var canvas = canvas_specs[0];
-	var x_scale = canvas_specs[1];
-	var y_scale = canvas_specs[2];
+function plotDatapoints(datapoints, treemap) {
+	var canvas = treemap.canvas;
+	var x_scale = treemap.x_scale;
+	var y_scale = treemap.y_scale;
 	var datapoint_tooltip = d3.select('#datapointTooltip');
 
 

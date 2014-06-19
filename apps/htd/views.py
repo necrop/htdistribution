@@ -1,13 +1,17 @@
 from django.shortcuts import render, redirect
 from django.http import HttpResponse, HttpResponseRedirect, Http404, HttpRequest
 from django.contrib.auth.decorators import login_required
+from django.core.urlresolvers import reverse
 
 from .models import Collection
 
 base_url = '/projects/htd'
 
 
-@login_required
+#=============================================================
+# Home page, static pages, etc.
+#=============================================================
+
 def homepage(request):
     """
     Home page
@@ -15,6 +19,19 @@ def homepage(request):
     params = {}
     return render(request, 'htd/home.html', _add_base_params(params, request))
 
+
+def info(request, **kwargs):
+    """
+    Information page (help, about, etc.)
+    """
+    template_name = 'htd/info/%s.html' % kwargs.get('page')
+    params = {}
+    return render(request, template_name, _add_base_params(params, request))
+
+
+#=============================================================
+# Element listings and display
+#=============================================================
 
 def scatter(request, **kwargs):
     from .models import Element, ElementRawData
@@ -44,24 +61,6 @@ def histogram(request, **kwargs):
     return render(request, 'htd/charts/histogram.html', _add_base_params(params, request))
 
 
-
-def breadcrumb(request, **kwargs):
-    """
-    Return the breadcrumb for a thesaurus class (identified by ID)
-    """
-    import json
-    from .models import ThesaurusClass
-    class_id = int(kwargs.get('id'))
-    try:
-        thesclass = ThesaurusClass.objects.get(id=class_id)
-    except ThesaurusClass.DoesNotExist:
-        text = '[breadcrumb not found]'
-    else:
-        text = thesclass.breadcrumb
-    response = json.dumps([text, ])
-    return HttpResponse(response, content_type='text/plain')
-
-
 def sense(request, **kwargs):
     """
     Return JSON data representing a sense (identified by database ID):
@@ -71,11 +70,11 @@ def sense(request, **kwargs):
     from .models import Sense
     sense_id = int(kwargs.get('id'))
     try:
-        sense = Sense.objects.get(id=sense_id)
+        sense_record = Sense.objects.get(id=sense_id)
     except Sense.DoesNotExist:
         data = ['', 0, 0]
     else:
-        data = [sense.lemma, sense.entry, sense.lexid]
+        data = [sense_record.lemma, sense_record.entry, sense_record.lexid]
     response = json.dumps(data)
     return HttpResponse(response, content_type='text/plain')
 
@@ -90,16 +89,9 @@ def list_elements(request, **kwargs):
                   _add_base_params(params, request))
 
 
-
-
-
-
-def info(request, **kwargs):
-    template_name = 'htd/info/%s.html' % kwargs.get('page')
-    params = {}
-    return render(request, template_name, _add_base_params(params, request))
-
-
+#=============================================================
+# Search
+#=============================================================
 
 def search(request, **kwargs):
     from .lib.search import search_url
@@ -107,7 +99,8 @@ def search(request, **kwargs):
         post = request.POST.copy()
         return HttpResponseRedirect(search_url(base_url, post.get('query', '')))
     else:
-        return redirect(homepage)
+        url = reverse('htd:home')
+        return HttpResponseRedirect(url)
 
 
 def search_results(request, **kwargs):
@@ -125,52 +118,40 @@ def search_results(request, **kwargs):
                       _add_base_params(params, request))
 
 
-@login_required
-def element_display(request, **kwargs):
-    from .models import Element
-    from .lib.rankings import rankings
-    id = kwargs.get('id')
-    view = request.GET.get('view', 'stack2')
-    try:
-        element = Element.objects.get(id=id)
-    except Element.DoesNotExist:
-        element = None
+#=============================================================
+# Taxonomy
+#=============================================================
 
-    if element is not None:
-        if view == 'tables':
-            rank = rankings(element, clip=10, threshold=50)
-        else:
-            rank = None
-        params = {'element': element, 'rankings': rank, 'view': view}
-        return render(request, 'htd/charts/element_base.html',
-                      _add_base_params(params, request))
-    else:
-        params = {'id': id}
-        return render(request, 'htd/element_not_found.html',
-                      _add_base_params(params, request))
-
-
-@login_required
 def taxonomy(request, **kwargs):
     from .models import ThesaurusClass
     thes_classes = sorted(ThesaurusClass.objects.filter(level__in=(1, 2, 3)),
-                          key=lambda t: t.breadcrumb())
+                          key=lambda t: t.breadcrumb)
     params = {'classes': thes_classes}
     return render(request, 'htd/taxonomy.html',
                   _add_base_params(params, request))
 
 
+#=============================================================
+# Collections
+#=============================================================
+
 def collection_submit(request, **kwargs):
-    from .lib.collection.utilities import anonymous_url
+    from .lib.collection.utilities import build_idlist
     if request.method == 'POST':
         post = request.POST.copy()
-        return HttpResponseRedirect(anonymous_url(base_url, post))
+        idlist = build_idlist(post)
+        if idlist:
+            url = reverse('htd:collectionanon', kwargs={'idlist': idlist})
+        else:
+            setname = post.get('setname')
+            url = reverse('htd:collectionfail', kwargs={'setname': setname})
     else:
-        return redirect(homepage)
+        url = reverse('htd:home')
+    return HttpResponseRedirect(url)
 
 
 def collection_fail(request, **kwargs):
-    params = {'setname': request.GET.get('type')}
+    params = {'setname': kwargs.get('setname')}
     return render(request, 'htd/collection/fail.html',
                   _add_base_params(params, request))
 
@@ -194,13 +175,13 @@ def collection(request, **kwargs):
 
     if len(elements) > 1:
         view = request.GET.get('view', 'home')
-        setname = elements[0].type
+        setname = elements[0].elementtype
         idlist = '-'.join([str(e.id) for e in elements])
         elements = element_sorter(request, elements)
 
         if view == 'histogramdetail':
             thes_classes = sorted(ThesaurusClass.objects.filter(level__in=(1, 2, 3)),
-                            key=lambda t: t.breadcrumb())
+                                  key=lambda t: t.breadcrumb())
             thesclass_id = int(request.GET.get('class', 0))
             if thesclass_id:
                 currentclass = ThesaurusClass.objects.get(id=thesclass_id)
@@ -221,22 +202,29 @@ def collection(request, **kwargs):
         return render(request, 'htd/collection/collection.html',
                     _add_base_params(params, request))
     else:
-        return redirect(collection_fail)
+        if len(elements) == 1:
+            setname = elements[0].elementtype
+            url = reverse('htd:collectionfail', kwargs={'setname': setname})
+        else:
+            url = reverse('htd:collectionfail', kwargs={'setname': 'author'})
+        return HttpResponseRedirect(url)
 
 
 def collection_manager(request, **kwargs):
     params = {'collections': Collection.objects.all()}
     return render(request, 'htd/collection/manage.html',
-                    _add_base_params(params, request))
+                  _add_base_params(params, request))
 
 
 def collection_save(request, **kwargs):
     from .lib.collection.utilities import save_collection
     if request.method == 'POST':
         post = request.POST.copy()
-        return HttpResponseRedirect(save_collection(base_url, post))
+        collection_id = save_collection(post)
+        url = reverse('htd:collection', kwargs={'id': str(collection_id)})
     else:
-        return redirect(homepage)
+        url = reverse('htd:home')
+    return HttpResponseRedirect(url)
 
 
 def collection_update(request, **kwargs):
@@ -244,9 +232,10 @@ def collection_update(request, **kwargs):
     if request.method == 'POST':
         post = request.POST.copy()
         update_collection(post)
-        return redirect(collection_manager)
+        url = reverse('htd:collections')
     else:
-        return redirect(homepage)
+        url = reverse('htd:home')
+    return HttpResponseRedirect(url)
 
 
 def collection_delete(request, **kwargs):
@@ -257,7 +246,41 @@ def collection_delete(request, **kwargs):
         c = None
     if c:
         c.delete()
-    return redirect(collection_manager)
+    url = reverse('htd:collections')
+    return HttpResponseRedirect(url)
+
+
+
+
+def _add_base_params(params, request):
+    params['collections'] = Collection.objects.all()
+    return params
+
+
+"""
+def element_display(request, **kwargs):
+    from .models import Element
+    from .lib.rankings import rankings
+    id = kwargs.get('id')
+    view = request.GET.get('view', 'stack2')
+    try:
+        element = Element.objects.get(id=id)
+    except Element.DoesNotExist:
+        element = None
+
+    if element is not None:
+        if view == 'tables':
+            rank = rankings(element, clip=10, threshold=50)
+        else:
+            rank = None
+        params = {'element': element, 'rankings': rank, 'view': view}
+        return render(request, 'htd/charts/element_base.html',
+                      _add_base_params(params, request))
+    else:
+        params = {'id': id}
+        return render(request, 'htd/element_not_found.html',
+                      _add_base_params(params, request))
+
 
 
 def plot(request, **kwargs):
@@ -301,8 +324,4 @@ def plot(request, **kwargs):
         thesclass_id = int(request.GET.get('class', 1))
         hd = HistogramDetail()
         return hd.draw_histogram(elements, thesclass_id)
-
-
-def _add_base_params(params, request):
-    params['collections'] = Collection.objects.all()
-    return params
+"""

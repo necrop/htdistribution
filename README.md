@@ -1,1 +1,1 @@
-Django site for displaying frequency data for OED lemmas.
+Django site for displaying the distribution of various features of OED data in relation to the HTOED treemap.

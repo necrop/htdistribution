@@ -3,10 +3,10 @@ from lex import lexconfig
 
 PIPELINE = [
     ('build_taxonomy_versions', 0),
-    ('compile_treemap_data', 1),
+    ('compile_treemap_data', 0),
     ('compile_feature_data', 0),
     ('summarize', 0),
-    ('populate_database', 0),
+    ('populate_database', 1),
 ]
 
 FEATURES = ('author', 'language', 'compound')

@@ -1,4 +1,4 @@
-{% extends "htdistribution/base.html" %}
+{% extends "htd/base.html" %}
 
 {% block page_title %}
 collection
@@ -11,7 +11,7 @@ collection
 
 <p>Unable to create a collection; at least two {{ setname }}s should be selected.</p>
 <p>
-	<a class="btn btn-primary" href="{% url 'htdistribution_list' setname=setname %}">
+	<a class="btn btn-primary" href="{% url 'htd:list' setname=setname %}">
 		<i class="icon-repeat icon-white"></i> Return to {{ setname }} list
 	</a>
 </p>

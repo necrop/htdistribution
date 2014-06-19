@@ -5,41 +5,41 @@ LEMMA_TOKENIZER = (re.compile(r"^([a-z-]+) (of| of the) ([a-z-]+)$", re.I),
 
 
 def tokenize_lemma(lemma, entry_lemma, subentry_type, etyma):
-    m1 = LEMMA_TOKENIZER[0].search(lemma)
-    m2 = LEMMA_TOKENIZER[1].search(lemma)
-    w1, w2 = (None, None)
-    if m1 is not None:
+    match1 = LEMMA_TOKENIZER[0].search(lemma)
+    match2 = LEMMA_TOKENIZER[1].search(lemma)
+    word1, word2 = (None, None)
+    if match1 is not None:
         # 'x of y'-type compounds: we reverse the order of the words,
         #  since 'admiral of the fleet' is like 'fleet admiral'
-        w1 = m1.group(3)
-        w2 = m1.group(1)
-    elif m2 is not None:
+        word1 = match1.group(3)
+        word2 = match1.group(1)
+    elif match2 is not None:
         # ... whereas these are regular 'x-y'-type compounds, so we keep
         #  the words in their regular order
-        w1 = m2.group(1)
-        w2 = m2.group(3)
+        word1 = match2.group(1)
+        word2 = match2.group(3)
     elif (subentry_type == 'compound' and
             lemma.startswith(entry_lemma)):
-        w1 = entry_lemma
-        w2 = lemma.replace(entry_lemma, '').strip(' -')
-        w2 = re.sub(r"^'s[ -]*", '', w2)
+        word1 = entry_lemma
+        word2 = lemma.replace(entry_lemma, '').strip(' -')
+        word2 = re.sub(r"^'s[ -]*", '', word2)
     elif (not subentry_type and
             len(etyma) == 2 and
             lemma.lower() == ''.join(etyma).lower()):
-        w1 = etyma[0]
-        w2 = etyma[1]
+        word1 = etyma[0]
+        word2 = etyma[1]
 
     # Affix entries
-    if w1 is None and subentry_type == 'affix':
+    if word1 is None and subentry_type == 'affix':
         prefix = entry_lemma.strip('-')
         if (lemma.startswith(prefix) and
                 len(lemma) > len(prefix) + 3):
-            w1 = prefix
-            w2 = lemma[len(prefix):]
+            word1 = prefix
+            word2 = lemma[len(prefix):]
 
     # Try again with the etyma, allowing a bit more flexibility in
     #  how they're combined to produce the lemma
-    if (w1 is None and
+    if (word1 is None and
             not subentry_type and
             lemma.lower() == entry_lemma.lower() and
             len(etyma) == 2):
@@ -60,7 +60,7 @@ def tokenize_lemma(lemma, entry_lemma, subentry_type, etyma):
             et2_short = et2.lower()[-4:]
             if (lemma.lower().startswith(et1_short) and
                     lemma.lower().endswith(et2_short)):
-                w1 = et1
-                w2 = et2
+                word1 = et1
+                word2 = et2
 
-    return w1, w2
+    return word1, word2

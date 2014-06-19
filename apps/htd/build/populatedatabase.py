@@ -18,6 +18,7 @@ MAX_DATAPOINTS = buildconfig.MAX_DATAPOINTS
 def populate_database():
     # Clear out the existing database
     Element.objects.all().delete()
+    ElementRawData.objects.all().delete()
     Sense.objects.all().delete()
     ThesaurusClass.objects.all().delete()
     # Repopulate
@@ -35,9 +36,10 @@ def populate_thesaurus():
     nodes = load_csv_treemap(TREEMAP_FILE)
     rows = []
     for node in nodes:
+        label = node.breadcrumb.split('\u00BB')[-1].strip()
         row = ThesaurusClass(id=node.id,
                              root=node.root,
-                             label=node.label[:100],
+                             label=label[:100],
                              level=node.level,
                              size=node.size,
                              ratio=node.ratio,

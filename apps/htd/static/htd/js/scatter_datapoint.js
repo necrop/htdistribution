@@ -1,4 +1,4 @@
-/* global $, d3, document_year */
+/* global $, d3 */
 'use strict';
 
 function DataPoint(row, thesaurus_node) {

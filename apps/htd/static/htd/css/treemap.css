@@ -6,11 +6,11 @@
 	pointer-events: none;
 }
 
-.level3square {
+.treemapNode2, .treemapNode3 {
 	stroke: #666666;
 	stroke-width: 0.25px;
 }
-.highlighted {
+.treemapNodeHighlighted {
 	stroke-width: 2px;
 }
 
@@ -47,6 +47,7 @@ text.level2Label {
 	text-align: left;
 	opacity: 0;
 	z-index: 10;
+	pointer-events: none;
 }
 
 .popup a:link {

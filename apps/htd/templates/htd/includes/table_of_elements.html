@@ -34,8 +34,10 @@
 						<input type="checkbox" name="element_{{ e.id }}"/>
 					</td>
 					<td>
-						<span style="font-size: 1.5em;"><a href="{{ e.get_absolute_url }}">{{ e.label }}</a>
-						{% include 'htd/includes/oed_link.html' with oed_url=e.oed_url %}
+						<span style="font-size: 1.5em;">
+							<a href="{{ e.get_absolute_url }}">{{ e.label }}</a>
+							{% include 'htd/includes/oed_link.html' with oed_url=e.oed_url %}
+						</span>
 					</td>
 					<td>
 						{{ e.year }}

@@ -37,27 +37,8 @@ class ThesaurusClass(models.Model):
         template = '%sview/th/class/%d'
         return template % (oed_baseurl, self.id)
 
-    def centre(self):
-        return (self.x + (self.width * 0.5),
-                self.y + (self.height * 0.5))
-
-    center = centre
-
-    def inner_rectangle(self):
-        try:
-            return self.inner_rect
-        except AttributeError:
-            self.inner_rect = ((self.x + (self.width * 0.1),
-                                self.y + (self.height * 0.1),),
-                                self.width * 0.8,
-                                self.height * 0.8)
-            return self.inner_rect
-
-    def area(self):
-        return self.width * self.height
-
-    def inner_area(self):
-        return self.inner_rectangle()[1] * self.inner_rectangle()[2]
+    def indent(self):
+        return '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;' * self.level
 
 
 class Element(models.Model):
@@ -116,7 +97,7 @@ class Collection(models.Model):
 
     def complement(self):
         element_ids = set([e.id for e in self.elements.all()])
-        return Element.objects.filter(type=self.elementtype).\
+        return Element.objects.filter(elementtype=self.elementtype).\
             exclude(id__in=element_ids)
 
     def members(self):

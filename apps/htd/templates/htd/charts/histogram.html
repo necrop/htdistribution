@@ -8,7 +8,8 @@
 
 {% block chart_specific_scripts %}
 	<script>
-		var raw_bar_data = {{ datapoints }};
+		var element_name = "{{ element.label }}";
+		var raw_bar_data = {{ element.stats }};
 	</script>
 	<script src="{% static 'htd/js/histogram_bar.js' %}"></script>
 	<script src="{% static 'htd/js/histogram_chart.js' %}"></script>

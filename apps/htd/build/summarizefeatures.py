@@ -16,7 +16,9 @@ TREEMAP_FILE = buildconfig.TREEMAP_COORDINATES
 def summarize_features():
     level2nodes = load_level2_nodes()
 
-    tm = TaxonomyManager(dir=TAXONOMY_DIR, levels=4, verbosity='low',
+    tm = TaxonomyManager(dir=TAXONOMY_DIR,
+                         levels=4,
+                         verbosity='low',
                          lazy=False)
     level2classes = [c for c in tm.classes if c.level() == 2 and
                      c.id() in level2nodes]
