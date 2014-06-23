@@ -1,0 +1,34 @@
+{% extends "htd/base.html" %}
+{% load staticfiles %}
+{% load htd_extras %}
+
+{% block page_title %}
+{% if collection %}{{ collection.label }}{% else %}collection{% endif %}
+{% endblock %}
+
+{% block pagecontent %}
+	<div class="hero-unit subhero">
+		<h2>{% if collection %}{{ collection.label }}{% else %}Collection: {{ elementtype }}s{% endif %}</h2>
+		<p>{{ collection.members }}</p>
+	</div>
+
+	<div class="navbar">
+		<div class="navbar-inner">
+			<ul class="nav">
+				<li {% if view == 'list' %}class="active"{% endif %}><a href="?view=list"><i class="icon-list"></i> elements data</a></li>
+				<li {% if view == 'stack' %}class="active"{% endif %}><a href="?view=stack"><i class="icon-picture"></i> senses per branch</a></li>
+				<li {% if view == 'detail' %}class="active"{% endif %}><a href="?view=detail"><i class="icon-zoom-in"></i> detailed comparison</a></li>
+				<li {% if view == 'properties' %}class="active"{% endif %}><a href="?view=properties"><i class="icon-list"></i> properties</a></li>
+			</ul>
+		</div>
+	</div>
+
+	{% block collection_page_content %}
+	{% endblock %}
+
+{% endblock %}
+
+
+{% block javascript_data %}
+	var element_stats = {{ jsondata|safe }};
+{% endblock %}

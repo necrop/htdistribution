@@ -1,0 +1,22 @@
+{% extends "htd/element/element_base.html" %}
+{% load staticfiles %}
+{% load htd_extras %}
+
+
+{% block chart_specific_css %}
+	<link href="{% static 'htd/css/scatter.css' %}" rel="stylesheet">
+{% endblock %}
+
+
+{% block javascript_data %}
+	var element_name = "{{ element.label }}";
+	var element_id = {{ element.id }};
+	var sense_url = "{% url 'htd:sense' id='' %}";
+	var raw_datapoints = {{ datapoints }};
+{% endblock %}
+
+
+{% block chart_specific_scripts %}
+	<script src="{% static 'htd/js/scatter_datapoint.js' %}"></script>
+	<script src="{% static 'htd/js/scatter_chart.js' %}"></script>
+{% endblock %}

@@ -1,0 +1,13 @@
+{% extends "htd/base.html" %}
+
+{% block page_title %}
+not found
+{% endblock %}
+
+{% block pagecontent %}
+	<div class="hero-unit subhero">
+		<h2>Element not found</h2>
+		<p>No element with ID={{ id }}</p>
+		<p><a href="{% url 'htd:home' %}">Return to home page</a></p>
+	</div>
+{% endblock %}

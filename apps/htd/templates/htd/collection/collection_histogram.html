@@ -1,0 +1,21 @@
+{% extends "htd/collection/collection_base.html" %}
+{% load staticfiles %}
+{% load htd_extras %}
+
+
+{% block extra_css %}
+	<link href="{% static 'htd/css/treemap.css' %}" rel="stylesheet">
+{% endblock %}
+
+
+{% block collection_page_content %}
+	<div class="row">
+		{% include 'htd/includes/chart_wrapper.html' %}
+	</div>
+{% endblock %}
+
+
+{% block extra_scripts %}
+	{% include 'htd/includes/charting_js_imports.html' %}
+	<script src="{% static 'htd/js/collection_stack.js' %}"></script>
+{% endblock %}

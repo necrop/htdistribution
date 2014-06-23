@@ -1,0 +1,28 @@
+{% extends "htd/collection/collection_base.html" %}
+{% load staticfiles %}
+{% load htd_extras %}
+
+
+{% block collection_page_content %}
+	<div class="row">
+	{% include 'htd/includes/table_of_elements.html' with mode='compare' elements=elements elementtype=elementtype %}
+
+	{% if not collection %}
+		<div class="span6 well">
+		Save this collection? Saving a collection make it easy to return to later, and also makes it available to other users.
+		<form class="form-horizontal" action="{% url 'htd:collectionsave' %}" method="post">
+			{% csrf_token %}
+			<input type="hidden" name="elementtype" value="{{ elementtype }}"/>
+			<input type="hidden" name="idlist" value="{{ idlist }}"/>
+			<div class="control-group">
+				<label class="control-label">Collection name (required)</label>
+				<div class="controls"><input type="text" name="label"/></div>
+			</div>
+			<div class="control-group">
+				<div class="controls"><button type="submit" class="btn-small btn-primary">save</button></div>
+			</div>
+		</form>
+		</div>
+	{% endif %}
+	</div>
+{% endblock %}

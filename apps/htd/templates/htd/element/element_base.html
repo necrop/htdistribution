@@ -1,0 +1,31 @@
+{% extends "htd/base.html" %}
+{% load staticfiles %}
+{% load htd_extras %}
+
+{% block page_title %}
+{{ element.label }}
+{% endblock %}
+
+{% block extra_css %}
+	<link href="{% static 'htd/css/treemap.css' %}" rel="stylesheet">
+	{% block chart_specific_css %}{% endblock %}
+{% endblock %}
+
+
+{% block pagecontent %}
+	<div class="hero-unit subhero">
+		<h2>
+			{{ element.label }}
+			{% include 'htd/includes/oed_link.html' with oed_url=element.oed_url invert='false' %}
+		</h2>
+		{{ element.size }} senses
+	</div>
+
+	{% include 'htd/includes/chart_wrapper.html' %}
+{% endblock %}
+
+
+{% block extra_scripts %}
+	{% include 'htd/includes/charting_js_imports.html' %}
+	{% block chart_specific_scripts %}{% endblock %}
+{% endblock %}
