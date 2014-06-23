@@ -8,7 +8,7 @@
 
 $(document).ready( function() {
 	var treemap = new Treemap(treemap_data);
-	treemap.drawTreemap(3);
+	treemap.drawTreemap(3, true);
 	treemap.addLevel2Labels();
 	var datapoints = parseDataPoints(raw_datapoints, treemap);
 	plotDatapoints(datapoints, treemap);

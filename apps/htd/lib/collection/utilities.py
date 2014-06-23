@@ -1,5 +1,4 @@
 from ...models import Element, Collection
-from ..charts.colors import add_colors
 
 
 def build_idlist(post):
@@ -19,7 +18,7 @@ def build_idlist(post):
 
 
 def save_collection(post):
-    label = post.get('label', 'unnamed')
+    label = post.get('label') or 'unnamed'
     description = post.get('description', None)
     setname = post.get('setname', 'author')
     idlist = post.get('idlist', '')
@@ -33,7 +32,7 @@ def save_collection(post):
     collection.save()  # has to be saved once before elements can be added
     collection.elements = elements
     collection.save()  # ...then saved again with elements
-    return collection.id
+    return collection
 
 
 def collection_elements(idlist):
@@ -43,7 +42,6 @@ def collection_elements(idlist):
     """
     ids = [int(id) for id in idlist.split('-')]
     elements = list(Element.objects.filter(id__in=ids))
-    elements = add_colors(elements)
     return elements
 
 
@@ -53,7 +51,7 @@ def update_collection(post):
     additions = [int(a) for a in post.getlist('additions')]
 
     collection = Collection.objects.get(id=collection_id)
-    collection.label = post.get('label', 'unnamed')
+    collection.label = post.get('label') or 'unnamed'
     collection.description = post.get('description') or None
     collection.alphasort = collection.compute_alphasort()
     collection.elements = collection_elements(element_idlist)
@@ -67,3 +65,9 @@ def update_collection(post):
             collection.elements.add(element)
 
     collection.save()
+
+
+def collection_json(elements):
+    import json
+    rows = [(element.id, element.label, element.stats) for element in elements]
+    return json.dumps(rows)

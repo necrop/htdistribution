@@ -14,7 +14,7 @@
 				<th>
 					Year {% include 'htd/includes/sortlinks.html' with sortorder='year' mode=mode %}
 				</th>
-				{% if setname == 'author' %}
+				{% if elementtype == 'author' %}
 					<th>
 						Gender {% include 'htd/includes/sortlinks.html' with sortorder='gender' mode=mode %}
 					</th>
@@ -42,7 +42,7 @@
 					<td>
 						{{ e.year }}
 					</td>
-					{% if setname == 'author' %}
+					{% if elementtype == 'author' %}
 						<td>
 							{{ e.gender }}
 						</td>
@@ -56,8 +56,8 @@
 	</table>
 
 	<div class="span3 well">
-		<input type="hidden" name="setname" value="{{ setname }}"/>
-		<p>Make a new collection from a subset of these {{ setname }}s: select two or more from the list above, then click:</p>
+		<input type="hidden" name="elementtype" value="{{ elementtype }}"/>
+		<p>Make a new collection from a subset of these {{ elementtype }}s: select two or more from the list above, then click:</p>
 		<button type="submit" class="btn-small btn-primary">make collection</button>
 	</div>
 </form>

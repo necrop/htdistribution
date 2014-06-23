@@ -1,9 +1,6 @@
 /* global $, d3, document_year */
 'use strict';
 
-var fill_colours = {1: ['#E5FFE5', '#EDFFED'], 122209: ['#E8FFFF', '#EFFFFF'],
-	153072: ['#FFDBFF', '#FFE5FF']};
-
 
 function TreemapNode(row) {
 	this.id = row[0];
@@ -18,6 +15,13 @@ function TreemapNode(row) {
 	this.sort = row[9];
 	this.breadcrumb = row[10];
 	this.n = null;
+
+	this.fill_colours = {
+		1: ['#E5FFE5', '#EDFFED'],
+		122209: ['#D9F2F5', '#EFFFFF'],
+		//153072: ['#FFDBFF', '#FFE5FF']};
+		153072: ['#FFEA5F', '#FFF29F']
+	};
 }
 
 TreemapNode.prototype.area = function() {
@@ -41,7 +45,7 @@ TreemapNode.prototype.label = function() {
 }
 
 TreemapNode.prototype.fill = function() {
-	var shades = fill_colours[this.root_id];
+	var shades = this.fill_colours[this.root_id];
 	if (this.n % 2) {
 		return shades[0];
 	} else {
@@ -71,4 +75,22 @@ TreemapNode.prototype.labelX = function() {
 
 TreemapNode.prototype.labelY = function() {
 	return this.y + (this.height * .5) + (this.labelFontsize() * .5);
+}
+
+// Inner box - similar to the bounding x-y-width-height box, but leaving
+//  a little margin round the edge
+TreemapNode.prototype.innerX = function() {
+	return this.x + (this.width * 0.02);
+}
+
+TreemapNode.prototype.innerY = function() {
+	return this.y + (this.height * 0.1);
+}
+
+TreemapNode.prototype.innerWidth = function() {
+	return this.width * 0.9;
+}
+
+TreemapNode.prototype.innerHeight = function() {
+	return this.height * 0.8;
 }

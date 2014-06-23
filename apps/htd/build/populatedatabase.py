@@ -6,7 +6,8 @@ import json
 from lex.oed.thesaurus.treemap import load_csv_treemap
 from . import config as buildconfig
 from .elementlistparser import load_element_list
-from apps.htd.models import Sense, Element, ElementRawData, ThesaurusClass
+from apps.htd.models import Sense, Element, ElementRawData, ThesaurusClass,\
+    Collection
 
 FEATURES = buildconfig.FEATURES
 FEATURESET_ROOT = buildconfig.FEATURESET_ROOT
@@ -17,6 +18,7 @@ MAX_DATAPOINTS = buildconfig.MAX_DATAPOINTS
 
 def populate_database():
     # Clear out the existing database
+    Collection.objects.all().delete()
     Element.objects.all().delete()
     ElementRawData.objects.all().delete()
     Sense.objects.all().delete()

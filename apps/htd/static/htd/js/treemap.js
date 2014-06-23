@@ -4,8 +4,11 @@
 function Treemap(raw_data) {
 	this.data = uncompressTreemapData(raw_data);
 	this.index = indexTreemapData(this.data);
-	this.level2_nodes = getNodesForLevel(this.data, 2);
-	this.level3_nodes = getNodesForLevel(this.data, 3);
+	this.level_nodes = {
+		2: getNodesForLevel(this.data, 2),
+		3: getNodesForLevel(this.data, 3)
+	};
+	this.live_nodes = true; // true = thesaurus nodes are highlighted on mouseover
 }
 
 Treemap.prototype.totalSize = function() {
@@ -18,7 +21,9 @@ Treemap.prototype.totalSize = function() {
 	return this.total_size;
 }
 
-Treemap.prototype.drawTreemap = function(level) {
+Treemap.prototype.drawTreemap = function(level, live_nodes) {
+	this.live_nodes = live_nodes;
+
 	var container_div = $('#chartContainer');
 	var canvas_width = container_div.innerWidth() * 0.95;
 	var canvas_height = canvas_width * 0.6;
@@ -48,18 +53,12 @@ Treemap.prototype.drawTreemap = function(level) {
 	this.y_scale = y_scale;
 	this.offset = container_div.offset();
 
-	if (level === 3) {
-		// Draw rectangles for the level-3 treemap nodes
-		var level3_blocks = this.drawBlocks(this.level3_nodes, 3);
-		this.setMouseoverHandlers(level3_blocks, 3);
-	} else if (level === 2) {
-		// Draw rectangles for the level-2 treemap nodes
-		var level2_blocks = this.drawBlocks(this.level2_nodes, 2);
-		this.setMouseoverHandlers(level2_blocks, 2);
-	}
+	// Draw rectangles for the level-2 or level-3 treemap nodes
+	var blocks = this.drawBlocks(this.level_nodes[level], level);
+	this.setMouseoverHandlers(blocks, level);
 
 	// Add a frame around the whole canvas (we do this *after* the
-	// level-2 and level-3 rectangles, so that it doesn't get obscured)
+	// level-2 or level-3 rectangles, so that it doesn't get obscured)
 	canvas.append('rect')
 		.attr('x', 0)
 		.attr('y', 0)
@@ -102,6 +101,7 @@ Treemap.prototype.drawBlocks = function(nodes, level) {
 Treemap.prototype.setMouseoverHandlers = function(blocks, level) {
 	var details_container = $('#classDetails');
 	var classname = 'treemapNode' + level;
+	var live_nodes = this.live_nodes;
 
 	// tooltip for showing class labels
 	var text_height = this.height * 0.02;
@@ -118,14 +118,18 @@ Treemap.prototype.setMouseoverHandlers = function(blocks, level) {
 	// Set event handlers for thesaurus-node blocks
 	blocks
 		.on('mouseover', function (d, event) {
-			d3.select(this).attr('class', classname + ' treemapNodeHighlighted');
 			showClassDetails(d);
-			class_label.show(d);
+			if (live_nodes) {
+				d3.select(this).attr('class', classname + ' treemapNodeHighlighted');
+				class_label.show(d);
+			}
 		})
 		.on('mouseout', function () {
-			d3.select(this).attr('class', classname);
 			hideClassDetails();
-			class_label.hide();
+			if (live_nodes) {
+				d3.select(this).attr('class', classname);
+				class_label.hide();
+			}
 		});
 
 
@@ -147,7 +151,7 @@ Treemap.prototype.addLevel2Labels = function() {
 
 	// Initialize the level-2 text labels
 	var level2_labels = this.canvas.selectAll('.level2Label')
-		.data(this.level2_nodes);
+		.data(this.level_nodes[2]);
 
 	// Add the level-2 text labels
 	level2_labels.enter().append('text')

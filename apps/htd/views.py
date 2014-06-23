@@ -35,30 +35,42 @@ def info(request, **kwargs):
 
 def scatter(request, **kwargs):
     from .models import Element, ElementRawData
-    id = int(kwargs.get('id', 0))
+    element_id = int(kwargs.get('id', 0))
     try:
-        element = Element.objects.get(id=id)
+        element = Element.objects.get(id=element_id)
     except Element.DoesNotExist:
         element = None
     try:
-        element_raw = ElementRawData.objects.get(id=id)
+        element_raw = ElementRawData.objects.get(id=element_id)
     except ElementRawData.DoesNotExist:
         data = '[]'
     else:
         data = element_raw.data
-    params = {'element': element, 'datapoints': data}
-    return render(request, 'htd/charts/scatter.html', _add_base_params(params, request))
+    if element and data:
+        params = {'element': element, 'datapoints': data}
+        return render(request, 'htd/element/scatter.html',
+                      _add_base_params(params, request))
+    else:
+        params = {'id': element_id}
+        return render(request, 'htd/element/element_not_found.html',
+                      _add_base_params(params, request))
 
 
 def histogram(request, **kwargs):
     from .models import Element
-    id = int(kwargs.get('id', 0))
+    element_id = int(kwargs.get('id', 0))
     try:
-        element = Element.objects.get(id=id)
+        element = Element.objects.get(id=element_id)
     except Element.DoesNotExist:
         element = None
-    params = {'element': element}
-    return render(request, 'htd/charts/histogram.html', _add_base_params(params, request))
+    if element:
+        params = {'element': element}
+        return render(request, 'htd/element/histogram.html',
+                      _add_base_params(params, request))
+    else:
+        params = {'id': element_id}
+        return render(request, 'htd/element/element_not_found.html',
+                      _add_base_params(params, request))
 
 
 def sense(request, **kwargs):
@@ -82,9 +94,9 @@ def sense(request, **kwargs):
 def list_elements(request, **kwargs):
     from .models import Element
     from .lib.sorter import element_sorter
-    setname = kwargs.get('setname', 'author')
-    elements = element_sorter(request, Element.objects.filter(elementtype=setname))
-    params = {'setname': setname, 'elements': elements}
+    elementtype = kwargs.get('elementtype') or 'author'
+    elements = element_sorter(request, Element.objects.filter(elementtype=elementtype))
+    params = {'elementtype': elementtype, 'elements': elements}
     return render(request, 'htd/element_list.html',
                   _add_base_params(params, request))
 
@@ -94,13 +106,14 @@ def list_elements(request, **kwargs):
 #=============================================================
 
 def search(request, **kwargs):
-    from .lib.search import search_url
+    from .lib.search import normalized_query
     if request.method == 'POST':
         post = request.POST.copy()
-        return HttpResponseRedirect(search_url(base_url, post.get('query', '')))
+        query = normalized_query(post.get('query', ''))
+        url = reverse('htd:searchresults', kwargs={'query': query})
     else:
         url = reverse('htd:home')
-        return HttpResponseRedirect(url)
+    return HttpResponseRedirect(url)
 
 
 def search_results(request, **kwargs):
@@ -143,70 +156,66 @@ def collection_submit(request, **kwargs):
         if idlist:
             url = reverse('htd:collectionanon', kwargs={'idlist': idlist})
         else:
-            setname = post.get('setname')
-            url = reverse('htd:collectionfail', kwargs={'setname': setname})
+            elementtype = post.get('elementtype')
+            url = reverse('htd:collectionfail', kwargs={'elementtype': elementtype})
     else:
         url = reverse('htd:home')
     return HttpResponseRedirect(url)
 
 
 def collection_fail(request, **kwargs):
-    params = {'setname': kwargs.get('setname')}
+    params = {'elementtype': kwargs.get('elementtype')}
     return render(request, 'htd/collection/fail.html',
                   _add_base_params(params, request))
 
 
 def collection(request, **kwargs):
-    from .models import ThesaurusClass
-    from .lib.charts.colors import add_colors
-    from .lib.collection.utilities import collection_elements
-    from .lib.collection.outliers import find_outliers
+    from .lib.collection.utilities import collection_elements, collection_json
     from .lib.sorter import element_sorter
     idlist = kwargs.get('idlist')
-    id = kwargs.get('id')
+    collection_id = kwargs.get('id')
     if idlist:
         coll = None
         elements = collection_elements(idlist)
-    elif id:
-        coll = Collection.objects.get(id=id)
-        elements = add_colors(coll.elements.all())
+    elif collection_id:
+        coll = Collection.objects.get(id=collection_id)
+        elements = coll.elements.all()
     else:
         elements = []
 
     if len(elements) > 1:
-        view = request.GET.get('view', 'home')
-        setname = elements[0].elementtype
+        view = request.GET.get('view') or 'list'
+        elementtype = elements[0].elementtype
         idlist = '-'.join([str(e.id) for e in elements])
         elements = element_sorter(request, elements)
 
-        if view == 'histogramdetail':
-            thes_classes = sorted(ThesaurusClass.objects.filter(level__in=(1, 2, 3)),
-                                  key=lambda t: t.breadcrumb())
-            thesclass_id = int(request.GET.get('class', 0))
-            if thesclass_id:
-                currentclass = ThesaurusClass.objects.get(id=thesclass_id)
-            else:
-                currentclass = None
+        params = {'elementtype': elementtype, 'elements': elements,
+                  'idlist': idlist, 'collection': coll, 'view': view,
+                  'jsondata': 0}
+        params = _add_base_params(params, request)
+
+        if view == 'list':
+            return render(request, 'htd/collection/contents.html',
+                          params)
+        elif view == 'stack':
+            params['jsondata'] = collection_json(elements)
+            return render(request, 'htd/collection/collection_histogram.html',
+                          params)
+        elif view == 'detail':
+            params['jsondata'] = collection_json(elements)
+            return render(request, 'htd/collection/collection_detail.html',
+                          params)
         else:
-            thes_classes = []
-            currentclass = None
+            return HttpResponseRedirect(reverse('htd:home'))
 
-        if view == 'properties2':
-            elements = find_outliers(elements, 2)
-        if view == 'properties3':
-            elements = find_outliers(elements, 3)
-
-        params = {'setname': setname, 'elements': elements, 'idlist': idlist,
-                  'collection': coll, 'view': view, 'classes': thes_classes,
-                  'currentclass': currentclass}
-        return render(request, 'htd/collection/collection.html',
-                    _add_base_params(params, request))
     else:
-        if len(elements) == 1:
-            setname = elements[0].elementtype
-            url = reverse('htd:collectionfail', kwargs={'setname': setname})
-        else:
-            url = reverse('htd:collectionfail', kwargs={'setname': 'author'})
+        # In case this is not a valid collection consisting of two or more
+        # elements
+        try:
+            elementtype = elements[0].elementtype
+        except IndexError:
+            elementtype = 'author'
+        url = reverse('htd:collectionfail', kwargs={'elementtype': elementtype})
         return HttpResponseRedirect(url)
 
 
@@ -220,8 +229,8 @@ def collection_save(request, **kwargs):
     from .lib.collection.utilities import save_collection
     if request.method == 'POST':
         post = request.POST.copy()
-        collection_id = save_collection(post)
-        url = reverse('htd:collection', kwargs={'id': str(collection_id)})
+        collection = save_collection(post)
+        url = collection.get_absolute_url()
     else:
         url = reverse('htd:home')
     return HttpResponseRedirect(url)
@@ -274,7 +283,7 @@ def element_display(request, **kwargs):
         else:
             rank = None
         params = {'element': element, 'rankings': rank, 'view': view}
-        return render(request, 'htd/charts/element_base.html',
+        return render(request, 'htd/element/element_base.html',
                       _add_base_params(params, request))
     else:
         params = {'id': id}
@@ -289,37 +298,37 @@ def plot(request, **kwargs):
     idlist = kwargs.get('idlist')
     if type == 'treescatter':
         from .models import Element
-        from .lib.charts.treemapscatter import TreemapScatter
+        from .lib.element.treemapscatter import TreemapScatter
         element = Element.objects.get(id=idlist)
         tm = TreemapScatter()
         return tm.draw_treemap(element)
     elif type == 'treestacksize2':
-        from .lib.charts.treemapstack import TreemapStack
+        from .lib.element.treemapstack import TreemapStack
         elements = collection_elements(idlist)
         tm = TreemapStack(labels3=False)
         return tm.draw_treemap(elements, level=2, mode='size')
     elif type == 'treestacksize3':
-        from .lib.charts.treemapstack import TreemapStack
+        from .lib.element.treemapstack import TreemapStack
         elements = collection_elements(idlist)
         tm = TreemapStack(labels3=True)
         return tm.draw_treemap(elements, level=3, mode='size')
     elif type == 'treestackshare2':
-        from .lib.charts.treemapstack import TreemapStack
+        from .lib.element.treemapstack import TreemapStack
         elements = collection_elements(idlist)
         tm = TreemapStack(labels3=False)
         return tm.draw_treemap(elements, level=2, mode='share')
     elif type == 'chistat2':
-        from .lib.charts.skewchart import SkewChart
+        from .lib.element.skewchart import SkewChart
         elements = collection_elements(idlist)
         sc = SkewChart()
         return sc.draw_skewchart(elements, level=2)
     elif type == 'chistat3':
-        from .lib.charts.skewchart import SkewChart
+        from .lib.element.skewchart import SkewChart
         elements = collection_elements(idlist)
         sc = SkewChart()
         return sc.draw_skewchart(elements, level=3)
     elif type == 'histogramdetail':
-        from .lib.charts.histogramdetail import HistogramDetail
+        from .lib.element.histogramdetail import HistogramDetail
         elements = collection_elements(idlist)
         thesclass_id = int(request.GET.get('class', 1))
         hd = HistogramDetail()

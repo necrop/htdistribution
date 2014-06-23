@@ -1,3 +1,6 @@
+import re
+from unidecode import unidecode
+
 from django.db import models
 from django.core.urlresolvers import reverse
 
@@ -89,11 +92,13 @@ class Collection(models.Model):
         ordering = ['alphasort',]
 
     def get_absolute_url(self):
-        return reverse('htd:collection', kwargs={'id': str(self.id)})
+        return reverse('htd:collection', kwargs={'id': str(self.id),
+                                                 'label': self.alphasort})
 
     def compute_alphasort(self):
-        return self.label.lower().replace('-', '').replace(' ', '')\
-            .replace(',', '')
+        alpha = unidecode(self.label.lower())
+        alpha = re.sub(r'[^a-z0-9]', '', alpha)
+        return alpha
 
     def complement(self):
         element_ids = set([e.id for e in self.elements.all()])

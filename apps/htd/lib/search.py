@@ -1,16 +1,18 @@
 from django.db.models import Q
 from ..models import Element, Collection
 
-def search_url(base_url, query):
-    query = query.strip().replace("  ", " ")
-    return "%s/searchresults/%s" % (base_url, query)
+
+def normalized_query(query):
+    query = query.strip().lower().replace('  ', ' ')
+    return query
+
 
 def results(query):
     if not query:
-        return ([], [])
+        return [], []
     else:
-        elements = Element.objects.filter( Q(label__icontains=query) |
+        elements = Element.objects.filter(Q(label__icontains=query) |
             Q(alphasort__icontains=query))
-        collections = Collection.objects.filter( Q(label__icontains=query) |
+        collections = Collection.objects.filter(Q(label__icontains=query) |
             Q(alphasort__icontains=query))
-        return (elements, collections)
+        return elements, collections

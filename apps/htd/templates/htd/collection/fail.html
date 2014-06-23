@@ -9,10 +9,10 @@ collection
 	<h2>Invalid collection</h2>
 </div>
 
-<p>Unable to create a collection; at least two {{ setname }}s should be selected.</p>
+<p>Unable to create a collection; at least two {{ elementtype }}s should be selected.</p>
 <p>
-	<a class="btn btn-primary" href="{% url 'htd:list' setname=setname %}">
-		<i class="icon-repeat icon-white"></i> Return to {{ setname }} list
+	<a class="btn btn-primary" href="{% url 'htd:list' elementtype=elementtype %}">
+		<i class="icon-repeat icon-white"></i> Return to {{ elementtype }} list
 	</a>
 </p>
 {% endblock %}

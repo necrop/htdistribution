@@ -42,9 +42,9 @@
 							<li class="dropdown">
 								<a href="#" class="dropdown-toggle" data-toggle="dropdown">Base sets <b class="caret"></b></a>
 								<ul class="dropdown-menu">
-									<li><a href="{% url 'htd:list' setname='author' %}">Authors</a></li>
-									<li><a href="{% url 'htd:list' setname='language' %}">Languages</a></li>
-									<li><a href="{% url 'htd:list' setname='compound' %}">Compounds</a></li>
+									<li><a href="{% url 'htd:list' elementtype='author' %}">Authors</a></li>
+									<li><a href="{% url 'htd:list' elementtype='language' %}">Languages</a></li>
+									<li><a href="{% url 'htd:list' elementtype='compound' %}">Compounds</a></li>
 								</ul>
 							</li>
 							<li class="dropdown">
@@ -103,6 +103,10 @@
 
 		<script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
 		<script src="{% static 'common/bootstrap/js/bootstrap.min.js' %}"></script>
+		<script>
+			{% block javascript_data %}
+			{% endblock %}
+		</script>
 		{% block extra_scripts %}
 		{% endblock %}
 	</body>
