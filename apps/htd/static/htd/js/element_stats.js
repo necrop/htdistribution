@@ -65,12 +65,23 @@ ElementStats.prototype.addGlobalProperty = function(name, value) {
 
 
 function Datum(row, thesaurus_node) {
+	// Data point representing the part of an element that maps on to
+	// a specific thesaurus node
 	this.count = row[1];
 	this.node = thesaurus_node;
-	this.g = {};
+	this.g = {}; // container for any global (element-wide) properties
+	this.bar = {}; // container for x-position + width for histogram bar
+}
+
+Datum.prototype.signature = function() {
+	return this.element_id() + '_' + this.node.id;
 }
 
 Datum.prototype.global = function(property) {
+	return this.g[property];
+}
+
+Datum.prototype.property = function(property) {
 	return this.g[property];
 }
 
@@ -102,25 +113,20 @@ Datum.prototype.ratioToTotal = function() {
 	return this.count / this.global('element_total');
 }
 
-// Histogram bar coordinates
-Datum.prototype.x = function() {
-	return this.node.innerX();
-}
-
-Datum.prototype.y = function() {
-	return this.node.innerY();
-}
-
-Datum.prototype.width = function() {
-	return this.node.innerWidth();
-}
-
+// Histogram bar width
 Datum.prototype.rescaledWidth = function() {
-	return this.width() * this.ratioToMaxDensity();
+	return this.node.innerWidth() * this.ratioToMaxDensity();
 }
 
-Datum.prototype.height = function() {
-	return this.node.innerHeight();
+Datum.prototype.setDensityBarDimensions = function() {
+	// Set position/dimension used when displaying this datum as a
+	// single bar on the treemap
+	this.bar['density'] = {
+		'x': this.node.innerX(),
+		'y': this.node.innerY(),
+		'width': this.rescaledWidth(),
+		'height': this.node.innerHeight()
+	};
 }
 
 
@@ -132,8 +138,16 @@ Arrays of ElementStats compiled for a collections of elements
  */
 
 function CollectionStats(compressed, treemap) {
+	// Compile a set of element stats for each element in the collection...
+	var elementstats_list = this.compileElementSets(compressed, treemap);
+	// Then re-map these to node sets, once for each thesaurus node
+	this.node_sets = this.compileNodeSets(elementstats_list);
+}
+
+CollectionStats.prototype.compileElementSets = function(compressed, treemap) {
+	// Compile a set of element stats for each element in the collection
 	var cm = new ColourManager();
-	this.data = [];
+	var elementstats_list = [];
 	for (var i = 0; i < compressed.length; i += 1) {
 		var row = compressed[i];
 		var element_id = row[0];
@@ -141,39 +155,63 @@ function CollectionStats(compressed, treemap) {
 		var colour = cm.chooseColour(i, element_label);
 		var element_stats = new ElementStats(row[2], treemap, element_label, element_id);
 		element_stats.addGlobalProperty('colour', colour);
-		this.data.push(element_stats)
+		elementstats_list.push(element_stats);
 	}
+	return elementstats_list;
 }
 
-CollectionStats.prototype.compileNodeSets = function() {
+CollectionStats.prototype.compileNodeSets = function(elementstats_list) {
 	// Get an arbitrary ElementStats object, so that we can extract
 	// a set of level-2 treemap nodes
 	var thesaurus_nodes = [];
-	var sample_stats = this.data[0];
+	var sample_stats = elementstats_list[0];
 	for (var i = 0; i < sample_stats.data.length; i += 1) {
 		var datum = sample_stats.data[i];
 		thesaurus_nodes.push(datum.node);
 	}
 
-	this.node_sets = [];
+	var node_sets = [];
 	for (var i = 0; i < thesaurus_nodes.length; i += 1) {
 		var node = thesaurus_nodes[i];
-		var nset = this.makeNodeSet(node);
-		this.node_sets.push(nset);
+		var nset = this.makeNodeSet(node, elementstats_list);
+		node_sets.push(nset);
 	}
+	return node_sets;
 }
 
-CollectionStats.prototype.makeNodeSet = function(node) {
+CollectionStats.prototype.makeNodeSet = function(node, elementstats_list) {
 	// Return the set of datum objects corresponding to a given thesaurus node
 	var nset = [];
-	for (var i = 0; i < this.data.length; i += 1) {
-		var element = this.data[i];
-		nset.push(element.findNodeData(node));
+	for (var i = 0; i < elementstats_list.length; i += 1) {
+		var element_stats = elementstats_list[i];
+		nset.push(element_stats.findNodeData(node));
 	}
 	return new NodeSet(node, nset);
 }
 
+CollectionStats.prototype.maxDensity = function() {
+	// Return the highest density of any node set
+	if (! this.max_density) {
+		this.max_density = 0;
+		for (var i = 0; i < this.node_sets.length; i += 1) {
+			var node_set = this.node_sets[i];
+			var local_density = node_set.density();
+			if (local_density > this.max_density) {
+				this.max_density = local_density;
+			}
+		}
+	}
+	return this.max_density;
+}
 
+CollectionStats.prototype.histogramStacks = function() {
+	for (var i = 0; i < this.node_sets.length; i += 1) {
+		var node_set = this.node_sets[i];
+		node_set.setHistogramPositions('count', this.maxDensity());
+		node_set.setHistogramPositions('density', this.maxDensity());
+	}
+	return this.node_sets;
+}
 
 
 function NodeSet(node, data) {
@@ -184,11 +222,17 @@ function NodeSet(node, data) {
 }
 
 NodeSet.prototype.sumCount = function() {
-	var sum = 0;
-	for (var i = 0; i < this.data.length; i += 1) {
-		sum += this.data[i].count;
+	if (! this.sum) {
+		this.sum = 0;
+		for (var i = 0; i < this.data.length; i += 1) {
+			this.sum += this.data[i].count;
+		}
 	}
-	return sum;
+	return this.sum;
+}
+
+NodeSet.prototype.density = function() {
+	return this.sumCount() / this.node.size;
 }
 
 NodeSet.prototype.sumRatioToAverageDensity = function() {
@@ -209,8 +253,9 @@ NodeSet.prototype.maxRatioToAverageDensity = function() {
 	return max;
 }
 
-NodeSet.prototype.setHistogramPositions = function(mode) {
+NodeSet.prototype.setHistogramPositions = function(mode, max_density) {
 	// Create positions for each datum as segments of a horizontal histogram
+
 	var sum;
 	if (mode === 'count') {
 		sum = this.sumCount();
@@ -218,25 +263,53 @@ NodeSet.prototype.setHistogramPositions = function(mode) {
 		sum = this.sumRatioToAverageDensity();
 	}
 
-	// First, figure out position within a unit space (this will later
-	// be rescaled to fit in the treemap space)
+	// First, figure out position and width of each datum segment within
+	// a unit space. (This will later be rescaled to fit in the
+	// treemap space.)
 	var running_x = 0;
 	for (var i = 0; i < this.data.length; i += 1) {
 		var datum = this.data[i];
 		var value;
 		if (mode === 'count') {
-			value = this.count;
+			value = datum.count;
 		} else if (mode === 'density') {
-			value = this.ratioToAverageDensity();
+			value = datum.ratioToAverageDensity();
 		}
 		var ratio = value / sum;
-		// datum.bar will contain the data needs to draw the segment
-		// of the bar representing the datum.
-		datum.bar = {
-			'ratio': value / sum,
+		datum.bar[mode] = {
+			'ratio': ratio,
 			'x': running_x,
 			'width': ratio
 		};
 		running_x += ratio;
 	}
+
+	// Rescale so that the bar as a whole is sized to represent the
+	// overall density of this node set (relative to the node set with
+	// the maximum density).
+	var scale_factor = this.density() / max_density;
+	for (var i = 0; i < this.data.length; i += 1) {
+		var datum_bar = this.data[i].bar[mode];
+		datum_bar.x = datum_bar.x * scale_factor;
+		datum_bar.width = datum_bar.width * scale_factor;
+	}
+
+	// Now fit the bar into the treemap node's inner rectangle area
+	var inner_x = this.node.innerX();
+	var inner_width = this.node.innerWidth();
+	for (var i = 0; i < this.data.length; i += 1) {
+		var datum_bar = this.data[i].bar[mode];
+		datum_bar.x = (datum_bar.x * inner_width) + inner_x;
+		datum_bar.width = datum_bar.width * inner_width;
+	}
+
+	// Add y-position + height
+	var inner_y = this.node.innerY();
+	var inner_height = this.node.innerHeight();
+	for (var i = 0; i < this.data.length; i += 1) {
+		var datum_bar = this.data[i].bar[mode];
+		datum_bar.y = inner_y;
+		datum_bar.height = inner_height;
+	}
+
 }

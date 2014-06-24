@@ -50,8 +50,25 @@ function ColourManager() {
 		"gold": "#FFCC00",
 		"silver": "#C0C0C0"
 	};
-}
 
+	// Shades from red to blue, used to fill the histogram bars, depending
+	//  on the ratio of this bar to the average density; e.g. if more than
+	//  2* the average, the bar will be red; if less than 0.2* the average
+	//  it will be dark blue.
+	this.shades = [
+		[2, '#FF0000'], // red shading to...
+		[1.8, '#FF1E00'],
+		[1.6, '#FF3D00'],
+		[1.4, '#FF5B00'],
+		[1.2, '#FF7A00'],
+		[1, '#FF9900'],  // ...orange
+		[.8, '#336699'], // light blue shading to...
+		[.6, '#26598C'],
+		[.4, '#194C7F'],
+		[.2, '#0C3F72'],
+		[0, '#003366'] // ...dark blue
+	];
+}
 
 ColourManager.prototype.chooseColour = function(i, label) {
 	label = label.toLowerCase();
@@ -62,4 +79,17 @@ ColourManager.prototype.chooseColour = function(i, label) {
 	} else {
 		return this.colours[this.colours.length-1];
 	}
+}
+
+ColourManager.prototype.chooseShade = function(value) {
+	var selection = this.shades[0][1]; // arbitrary initial value
+	for (var i = 0; i < this.shades.length; i += 1) {
+		var step = this.shades[i][0];
+		var shade = this.shades[i][1];
+		if (step <= value) {
+			selection = shade;
+			break;
+		}
+	}
+	return selection;
 }

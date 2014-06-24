@@ -10,6 +10,10 @@
 
 {% block collection_page_content %}
 	<div class="row">
+		<div class="btn-group" id="histogramControls">
+			<button class="btn btn-info" value="count">Count</button>
+			<button class="btn btn-primary" value="density">Density</button>
+		</div>
 		{% include 'htd/includes/chart_wrapper.html' %}
 	</div>
 {% endblock %}
